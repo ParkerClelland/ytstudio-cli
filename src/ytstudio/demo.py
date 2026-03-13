@@ -4,6 +4,7 @@ import os
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import ClassVar
 
 DEMO_MODE = os.environ.get("YTSTUDIO_DEMO", "").lower() in ("1", "true", "yes")
 
@@ -81,6 +82,56 @@ class _DemoComments:
         return DemoRequest({})
 
 
+class _DemoLiveBroadcasts:
+    _ACTIVE_STATUSES: ClassVar[set[str]] = {"live", "liveStarting", "testing"}
+    _UPCOMING_STATUSES: ClassVar[set[str]] = {"ready", "created"}
+    _COMPLETED_STATUSES: ClassVar[set[str]] = {"complete"}
+
+    def list(self, **kwargs):
+        broadcast_status = kwargs.get("broadcastStatus", "all")
+        max_results = kwargs.get("maxResults", 50)
+        all_items = _load("broadcasts.json")["items"]
+
+        if broadcast_status == "active":
+            filtered = [
+                b for b in all_items if b["status"]["lifeCycleStatus"] in self._ACTIVE_STATUSES
+            ]
+        elif broadcast_status == "upcoming":
+            filtered = [
+                b for b in all_items if b["status"]["lifeCycleStatus"] in self._UPCOMING_STATUSES
+            ]
+        elif broadcast_status == "completed":
+            filtered = [
+                b for b in all_items if b["status"]["lifeCycleStatus"] in self._COMPLETED_STATUSES
+            ]
+        else:  # "all"
+            filtered = all_items
+
+        return DemoRequest(
+            {
+                "items": filtered[:max_results],
+                "pageInfo": {"totalResults": len(all_items)},
+            }
+        )
+
+    def insert(self, **kwargs):
+        body = kwargs.get("body", {})
+        return DemoRequest(body, delay=0.3)
+
+    def update(self, **kwargs):
+        body = kwargs.get("body", {})
+        return DemoRequest(body, delay=0.3)
+
+    def transition(self, **kwargs):
+        return DemoRequest(
+            {
+                "id": kwargs.get("id", ""),
+                "status": {"lifeCycleStatus": kwargs.get("broadcastStatus", "live")},
+            },
+            delay=0.3,
+        )
+
+
 class DemoDataService:
     def channels(self):
         return _DemoChannels()
@@ -96,6 +147,9 @@ class DemoDataService:
 
     def commentThreads(self):
         return _DemoCommentThreads()
+
+    def liveBroadcasts(self):
+        return _DemoLiveBroadcasts()
 
 
 class _DemoReports:

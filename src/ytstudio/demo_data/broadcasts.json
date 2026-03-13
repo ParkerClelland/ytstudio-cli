@@ -1,0 +1,80 @@
+{
+  "items": [
+    {
+      "id": "demo_broadcast_upcoming",
+      "snippet": {
+        "title": "Friday Game Night — Live Q&A",
+        "description": "Join us for our weekly game night and Q&A session!",
+        "scheduledStartTime": "2026-04-01T20:00:00Z",
+        "scheduledEndTime": "2026-04-01T22:00:00Z",
+        "actualStartTime": "",
+        "actualEndTime": ""
+      },
+      "status": {
+        "lifeCycleStatus": "ready",
+        "privacyStatus": "public",
+        "recordingStatus": "notRecording"
+      },
+      "contentDetails": {
+        "boundStreamId": "demo_stream_001"
+      }
+    },
+    {
+      "id": "demo_broadcast_live",
+      "snippet": {
+        "title": "Weekend Coding Session",
+        "description": "Building a CLI tool live with the community.",
+        "scheduledStartTime": "2026-03-10T14:00:00Z",
+        "scheduledEndTime": "",
+        "actualStartTime": "2026-03-10T14:02:30Z",
+        "actualEndTime": ""
+      },
+      "status": {
+        "lifeCycleStatus": "live",
+        "privacyStatus": "public",
+        "recordingStatus": "recording"
+      },
+      "contentDetails": {
+        "boundStreamId": "demo_stream_002"
+      }
+    },
+    {
+      "id": "demo_broadcast_completed",
+      "snippet": {
+        "title": "Product Launch Event",
+        "description": "Official product launch live stream.",
+        "scheduledStartTime": "2026-02-15T18:00:00Z",
+        "scheduledEndTime": "2026-02-15T20:00:00Z",
+        "actualStartTime": "2026-02-15T18:01:00Z",
+        "actualEndTime": "2026-02-15T20:30:00Z"
+      },
+      "status": {
+        "lifeCycleStatus": "complete",
+        "privacyStatus": "unlisted",
+        "recordingStatus": "recorded"
+      },
+      "contentDetails": {
+        "boundStreamId": "demo_stream_003"
+      }
+    },
+    {
+      "id": "demo_broadcast_created",
+      "snippet": {
+        "title": "Upcoming AMA — Topic TBD",
+        "description": "AMA session — topic to be announced soon.",
+        "scheduledStartTime": "2026-05-01T16:00:00Z",
+        "scheduledEndTime": "",
+        "actualStartTime": "",
+        "actualEndTime": ""
+      },
+      "status": {
+        "lifeCycleStatus": "created",
+        "privacyStatus": "private",
+        "recordingStatus": "notRecording"
+      },
+      "contentDetails": {
+        "boundStreamId": ""
+      }
+    }
+  ]
+}
