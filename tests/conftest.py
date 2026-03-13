@@ -96,6 +96,26 @@ MOCK_NEGATIVE_COMMENT = {
     },
 }
 
+MOCK_BROADCAST = {
+    "id": "test_broadcast_123",
+    "snippet": {
+        "title": "Test Live Stream",
+        "description": "A test broadcast for unit testing",
+        "scheduledStartTime": "2026-04-01T20:00:00Z",
+        "scheduledEndTime": "2026-04-01T22:00:00Z",
+        "actualStartTime": "",
+        "actualEndTime": "",
+    },
+    "status": {
+        "lifeCycleStatus": "ready",
+        "privacyStatus": "public",
+        "recordingStatus": "notRecording",
+    },
+    "contentDetails": {
+        "boundStreamId": "test_stream_001",
+    },
+}
+
 
 def create_mock_service():
     service = MagicMock()
@@ -132,6 +152,22 @@ def create_mock_service():
         "items": [{"id": {"videoId": MOCK_VIDEO["id"]}}],
     }
     service.search.return_value.list.return_value = search_list
+
+    broadcasts_list = MagicMock()
+    broadcasts_list.execute.return_value = {"items": [MOCK_BROADCAST]}
+    service.liveBroadcasts.return_value.list.return_value = broadcasts_list
+
+    broadcasts_transition = MagicMock()
+    broadcasts_transition.execute.return_value = MOCK_BROADCAST
+    service.liveBroadcasts.return_value.transition.return_value = broadcasts_transition
+
+    broadcasts_insert = MagicMock()
+    broadcasts_insert.execute.return_value = MOCK_BROADCAST
+    service.liveBroadcasts.return_value.insert.return_value = broadcasts_insert
+
+    broadcasts_update = MagicMock()
+    broadcasts_update.execute.return_value = MOCK_BROADCAST
+    service.liveBroadcasts.return_value.update.return_value = broadcasts_update
 
     return service
 
