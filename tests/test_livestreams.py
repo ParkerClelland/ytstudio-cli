@@ -69,7 +69,7 @@ class TestLivestreamsList:
         mock_auth.liveBroadcasts.return_value.list.assert_called_once_with(
             part="snippet,status,contentDetails",
             broadcastStatus="active",
-            maxResults=20,
+            maxResults=50,
             pageToken=None,
         )
 
@@ -83,7 +83,7 @@ class TestLivestreamsList:
         mock_auth.liveBroadcasts.return_value.list.assert_called_once_with(
             part="snippet,status,contentDetails",
             broadcastStatus="all",
-            maxResults=5,
+            maxResults=50,
             pageToken="page-2",
         )
 

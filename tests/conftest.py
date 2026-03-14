@@ -110,9 +110,18 @@ MOCK_BROADCAST = {
         "lifeCycleStatus": "ready",
         "privacyStatus": "public",
         "recordingStatus": "notRecording",
+        "selfDeclaredMadeForKids": False,
     },
     "contentDetails": {
         "boundStreamId": "test_stream_001",
+        "enableAutoStart": False,
+        "enableAutoStop": False,
+        "enableDvr": True,
+        "enableEmbed": True,
+        "recordFromStart": True,
+        "closedCaptionsType": "closedCaptionsDisabled",
+        "latencyPreference": "normal",
+        "projection": "rectangular",
     },
 }
 

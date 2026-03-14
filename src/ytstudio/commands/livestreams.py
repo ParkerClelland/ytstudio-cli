@@ -39,6 +39,23 @@ class PrivacyStatus(StrEnum):
     unlisted = "unlisted"
 
 
+class ClosedCaptionsType(StrEnum):
+    disabled = "closedCaptionsDisabled"
+    http_post = "closedCaptionsHttpPost"
+    embedded = "closedCaptionsEmbedded"
+
+
+class LatencyPreference(StrEnum):
+    normal = "normal"
+    low = "low"
+    ultra_low = "ultraLow"
+
+
+class Projection(StrEnum):
+    rectangular = "rectangular"
+    three_sixty = "360"
+
+
 @dataclass
 class Broadcast:
     id: str
@@ -52,6 +69,15 @@ class Broadcast:
     actual_start: str = ""
     actual_end: str = ""
     bound_stream_id: str = ""
+    auto_start: bool = False
+    auto_stop: bool = False
+    dvr: bool = True
+    embed: bool = True
+    record_from_start: bool = True
+    closed_captions_type: str = "closedCaptionsDisabled"
+    latency_preference: str = "normal"
+    projection: str = "rectangular"
+    made_for_kids: bool = False
 
 
 _LIVESTREAM_ERRORS = {
@@ -92,6 +118,15 @@ def _parse_broadcast(item: dict[str, Any]) -> Broadcast:
         actual_start=snippet.get("actualStartTime", ""),
         actual_end=snippet.get("actualEndTime", ""),
         bound_stream_id=content.get("boundStreamId", ""),
+        auto_start=content.get("enableAutoStart", False),
+        auto_stop=content.get("enableAutoStop", False),
+        dvr=content.get("enableDvr", True),
+        embed=content.get("enableEmbed", True),
+        record_from_start=content.get("recordFromStart", True),
+        closed_captions_type=content.get("closedCaptionsType", "closedCaptionsDisabled"),
+        latency_preference=content.get("latencyPreference", "normal"),
+        projection=content.get("projection", "rectangular"),
+        made_for_kids=status.get("selfDeclaredMadeForKids", False),
     )
 
 
@@ -127,7 +162,7 @@ def list_broadcasts(
             service.liveBroadcasts().list(
                 part="snippet,status,contentDetails",
                 broadcastStatus=status.to_api_value(),
-                maxResults=min(limit, 50),
+                maxResults=50,
                 pageToken=page_token,
             )
         )
@@ -135,6 +170,7 @@ def list_broadcasts(
     )
     broadcasts = [_parse_broadcast(item) for item in response.get("items", [])]
     broadcasts.sort(key=lambda b: b.scheduled_start or "", reverse=True)
+    broadcasts = broadcasts[:limit]
 
     if not broadcasts:
         console.print("[yellow]No broadcasts found[/yellow]")
@@ -209,6 +245,15 @@ def show(
     table.add_row("actual start", broadcast.actual_start or "—")
     table.add_row("actual end", broadcast.actual_end or "—")
     table.add_row("stream bound", "Yes" if broadcast.bound_stream_id else "No")
+    table.add_row("auto start", "Yes" if broadcast.auto_start else "No")
+    table.add_row("auto stop", "Yes" if broadcast.auto_stop else "No")
+    table.add_row("dvr", "Yes" if broadcast.dvr else "No")
+    table.add_row("embed", "Yes" if broadcast.embed else "No")
+    table.add_row("record from start", "Yes" if broadcast.record_from_start else "No")
+    table.add_row("closed captions", broadcast.closed_captions_type)
+    table.add_row("latency", broadcast.latency_preference)
+    table.add_row("projection", broadcast.projection)
+    table.add_row("made for kids", "Yes" if broadcast.made_for_kids else "No")
     table.add_row("description", broadcast.description or "—")
 
     console.print(table)
@@ -337,12 +382,57 @@ def update(
         "--scheduled-end",
         help="New scheduled end in ISO 8601 format (e.g. 2026-04-01T19:00:00-05:00)",
     ),
+    auto_start: bool | None = typer.Option(
+        None, "--auto-start/--no-auto-start", help="Auto-start when stream begins"
+    ),
+    auto_stop: bool | None = typer.Option(
+        None, "--auto-stop/--no-auto-stop", help="Auto-stop when stream ends"
+    ),
+    dvr: bool | None = typer.Option(None, "--dvr/--no-dvr", help="Enable DVR controls for viewers"),
+    embed: bool | None = typer.Option(
+        None, "--embed/--no-embed", help="Allow embedding on external sites"
+    ),
+    record_from_start: bool | None = typer.Option(
+        None, "--record-from-start/--no-record-from-start", help="Record broadcast for archive"
+    ),
+    closed_captions: ClosedCaptionsType = typer.Option(
+        None,
+        "--closed-captions",
+        help="Closed captions: closedCaptionsDisabled, closedCaptionsHttpPost, closedCaptionsEmbedded",
+    ),
+    latency: LatencyPreference = typer.Option(
+        None, "--latency", help="Latency: normal, low, ultraLow"
+    ),
+    projection: Projection = typer.Option(
+        None, "--projection", help="Projection: rectangular, 360"
+    ),
+    made_for_kids: bool | None = typer.Option(
+        None, "--made-for-kids/--not-made-for-kids", help="Made for kids designation"
+    ),
     execute: bool = typer.Option(False, "--execute", help="Apply changes (default is dry-run)"),
 ):
-    """Update a live broadcast's metadata"""
-    if not any([title, description, privacy, scheduled_start, scheduled_end]):
+    """Update a live broadcast's metadata and settings"""
+    has_snippet_changes = any([title, description, privacy, scheduled_start, scheduled_end])
+    has_content_changes = any(
+        v is not None
+        for v in [
+            auto_start,
+            auto_stop,
+            dvr,
+            embed,
+            record_from_start,
+            closed_captions,
+            latency,
+            projection,
+        ]
+    )
+    has_status_changes = made_for_kids is not None
+
+    if not has_snippet_changes and not has_content_changes and not has_status_changes:
         console.print(
-            "[yellow]Nothing to update. Provide --title, --description, --privacy, --scheduled-start, or --scheduled-end[/yellow]"
+            "[yellow]Nothing to update. Provide --title, --description, --privacy, --scheduled-start, --scheduled-end, "
+            "--auto-start, --auto-stop, --dvr, --embed, --record-from-start, --closed-captions, --latency, --projection, "
+            "or --made-for-kids[/yellow]"
         )
         raise typer.Exit(1)
 
@@ -362,11 +452,36 @@ def update(
         "description": new_description,
         "scheduledStartTime": new_scheduled_start,
     }
-    status_body = {"privacyStatus": new_privacy}
-    body = {"id": broadcast_id, "snippet": snippet_body, "status": status_body}
+    status_body: dict[str, Any] = {"privacyStatus": new_privacy}
     new_scheduled_end = scheduled_end if scheduled_end else broadcast.scheduled_end
     if new_scheduled_end:
         snippet_body["scheduledEndTime"] = new_scheduled_end
+
+    content_body: dict[str, Any] = {
+        "enableAutoStart": auto_start if auto_start is not None else broadcast.auto_start,
+        "enableAutoStop": auto_stop if auto_stop is not None else broadcast.auto_stop,
+        "enableDvr": dvr if dvr is not None else broadcast.dvr,
+        "enableEmbed": embed if embed is not None else broadcast.embed,
+        "recordFromStart": record_from_start
+        if record_from_start is not None
+        else broadcast.record_from_start,
+        "closedCaptionsType": closed_captions.value
+        if closed_captions
+        else broadcast.closed_captions_type,
+        "latencyPreference": latency.value if latency else broadcast.latency_preference,
+        "projection": projection.value if projection else broadcast.projection,
+    }
+
+    if made_for_kids is not None:
+        status_body["selfDeclaredMadeForKids"] = made_for_kids
+
+    parts = ["snippet", "status"]
+    if has_content_changes:
+        parts.append("contentDetails")
+
+    body: dict[str, Any] = {"id": broadcast_id, "snippet": snippet_body, "status": status_body}
+    if has_content_changes:
+        body["contentDetails"] = content_body
 
     if not execute:
         console.print("[bold]Preview changes:[/bold]\n")
@@ -384,13 +499,39 @@ def update(
             console.print(
                 f"scheduled end: {broadcast.scheduled_end or '—'} → [green]{new_scheduled_end}[/green]"
             )
+        if auto_start is not None:
+            console.print(f"auto start: {broadcast.auto_start} → [green]{auto_start}[/green]")
+        if auto_stop is not None:
+            console.print(f"auto stop: {broadcast.auto_stop} → [green]{auto_stop}[/green]")
+        if dvr is not None:
+            console.print(f"dvr: {broadcast.dvr} → [green]{dvr}[/green]")
+        if embed is not None:
+            console.print(f"embed: {broadcast.embed} → [green]{embed}[/green]")
+        if record_from_start is not None:
+            console.print(
+                f"record from start: {broadcast.record_from_start} → [green]{record_from_start}[/green]"
+            )
+        if closed_captions:
+            console.print(
+                f"closed captions: {broadcast.closed_captions_type} → [green]{closed_captions.value}[/green]"
+            )
+        if latency:
+            console.print(
+                f"latency: {broadcast.latency_preference} → [green]{latency.value}[/green]"
+            )
+        if projection:
+            console.print(f"projection: {broadcast.projection} → [green]{projection.value}[/green]")
+        if made_for_kids is not None:
+            console.print(
+                f"made for kids: {broadcast.made_for_kids} → [green]{made_for_kids}[/green]"
+            )
         console.print("\nRun with --execute to apply")
         return
 
     try:
         api(
             service.liveBroadcasts().update(
-                part="snippet,status",
+                part=",".join(parts),
                 body=body,
             )
         )
