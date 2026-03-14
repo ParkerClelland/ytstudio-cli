@@ -61,7 +61,7 @@ SCOPES = [
 ]
 
 
-def authenticate() -> None:
+def authenticate(profile: str | None = None) -> None:
     if not CLIENT_SECRETS_FILE.exists():
         console.print("[red]No client secrets found. Run 'ytstudio init' first.[/red]")
         raise SystemExit(1) from None
@@ -89,7 +89,7 @@ def authenticate() -> None:
         "client_secret": credentials.client_secret,
         "scopes": credentials.scopes,
     }
-    save_credentials(creds_data)
+    save_credentials(creds_data, profile=profile)
 
     # Get channel info
     service = build("youtube", "v3", credentials=credentials)
