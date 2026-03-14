@@ -4,8 +4,8 @@ import typer
 from rich.console import Console
 
 from ytstudio.api import authenticate, get_status
-from ytstudio.commands import analytics, comments, livestreams, videos
-from ytstudio.config import setup_credentials
+from ytstudio.commands import analytics, channel, comments, livestreams, videos
+from ytstudio.config import get_active_profile, setup_credentials
 from ytstudio.version import get_current_version, is_update_available
 
 app = typer.Typer(
@@ -21,6 +21,7 @@ app.add_typer(videos.app, name="videos")
 app.add_typer(analytics.app, name="analytics")
 app.add_typer(comments.app, name="comments")
 app.add_typer(livestreams.app, name="livestreams")
+app.add_typer(channel.app, name="channel")
 
 
 @app.command()
@@ -45,6 +46,7 @@ def login():
 @app.command()
 def status():
     """Show current authentication status"""
+    console.print(f"Profile: [bold]{get_active_profile()}[/bold]")
     get_status()
 
 
