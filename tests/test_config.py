@@ -1,6 +1,8 @@
+import json
 from unittest.mock import patch
 
 import pytest
+import typer
 
 from ytstudio import config
 
@@ -39,9 +41,86 @@ class TestSetupCredentials:
         source.write_text('{"installed": {"client_id": "test"}}')
 
         config.setup_credentials(str(source))
-
-        assert config.get_client_secrets()["installed"]["client_id"] == "test"
+        secrets = config.get_client_secrets()
+        assert secrets is not None
+        assert secrets["installed"]["client_id"] == "test"
 
     def test_setup_with_missing_file(self, temp_config):
         with pytest.raises(SystemExit):
             config.setup_credentials("/nonexistent/file.json")
+
+
+class TestProfileFunctions:
+    def test_validate_profile_name_valid(self, temp_config):
+        assert config.validate_profile_name("my-channel") == "my-channel"
+        assert config.validate_profile_name("SanctifiedChurch") == "SanctifiedChurch"
+        assert config.validate_profile_name("channel_123") == "channel_123"
+
+    def test_validate_profile_name_invalid(self, temp_config):
+        with pytest.raises(typer.BadParameter):
+            config.validate_profile_name("bad name!")
+        with pytest.raises(typer.BadParameter):
+            config.validate_profile_name("bad/name")
+        with pytest.raises(typer.BadParameter):
+            config.validate_profile_name("")
+
+    def test_get_active_profile_default(self, temp_config):
+        # No config.json -> returns "default"
+        assert config.get_active_profile() == "default"
+
+    def test_set_and_get_active_profile(self, temp_config):
+        config.set_active_profile("SanctifiedChurch")
+        assert config.get_active_profile() == "SanctifiedChurch"
+
+    def test_get_profile_dir(self, temp_config):
+        d = config.get_profile_dir("my-channel")
+        assert d == temp_config / "profiles" / "my-channel"
+
+    def test_get_profile_credentials_path(self, temp_config):
+        p = config.get_profile_credentials_path("my-channel")
+        assert p == temp_config / "profiles" / "my-channel" / "credentials.json"
+
+    def test_ensure_profile_dir(self, temp_config):
+        config.ensure_profile_dir("test-profile")
+        assert (temp_config / "profiles" / "test-profile").is_dir()
+
+    def test_list_profiles_empty(self, temp_config):
+        assert config.list_profiles() == []
+
+    def test_list_profiles_sorted(self, temp_config):
+        config.ensure_profile_dir("ZChannel")
+        config.ensure_profile_dir("AChannel")
+        config.ensure_profile_dir("MChannel")
+        assert config.list_profiles() == ["AChannel", "MChannel", "ZChannel"]
+
+
+class TestProfileCredentials:
+    def test_save_to_named_profile(self, temp_config):
+        creds = {"token": "test_token"}
+        config.save_credentials(creds, profile="my-profile")
+        path = temp_config / "profiles" / "my-profile" / "credentials.json"
+        assert path.exists()
+        assert json.loads(path.read_text()) == creds
+
+    def test_load_from_active_profile(self, temp_config):
+        config.ensure_profile_dir("active-ch")
+        config.set_active_profile("active-ch")
+        creds = {"token": "profile_token"}
+        config.save_credentials(creds, profile="active-ch")
+        assert config.load_credentials() == creds
+
+    def test_legacy_fallback(self, temp_config):
+        # credentials.json at root (no profiles dir) -> load_credentials returns it
+        creds = {"token": "legacy_token"}
+        (temp_config / "credentials.json").write_text(json.dumps(creds))
+        assert config.load_credentials() == creds
+
+    def test_profile_path_takes_precedence_over_legacy(self, temp_config):
+        # Both profile path AND legacy exist -> profile takes precedence
+        config.ensure_profile_dir("default")
+        config.set_active_profile("default")
+        profile_creds = {"token": "profile_token"}
+        legacy_creds = {"token": "legacy_token"}
+        config.save_credentials(profile_creds, profile="default")
+        (temp_config / "credentials.json").write_text(json.dumps(legacy_creds))
+        assert config.load_credentials() == profile_creds
