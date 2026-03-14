@@ -1,5 +1,6 @@
 import json
 import re
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -69,6 +70,26 @@ def list_profiles() -> list[str]:
     return sorted([p.name for p in profiles_dir.iterdir() if p.is_dir()])
 
 
+def maybe_migrate() -> None:
+    """Migrate legacy credentials.json to profiles/default/ when needed."""
+    legacy_file = CREDENTIALS_FILE
+    profiles_dir = CONFIG_DIR / "profiles"
+
+    if not legacy_file.exists() or profiles_dir.exists():
+        return
+
+    default_profile_dir = profiles_dir / "default"
+    default_profile_dir.mkdir(parents=True, exist_ok=True)
+
+    dest = default_profile_dir / "credentials.json"
+    shutil.copy2(str(legacy_file), str(dest))
+
+    config_file = CONFIG_DIR / "config.json"
+    config_file.write_text(json.dumps({"active_profile": "default"}, indent=2))
+
+    legacy_file.unlink()
+
+
 def setup_credentials(client_secrets_file: str | None = None) -> None:
     ensure_config_dir()
 
@@ -130,6 +151,7 @@ def save_credentials(credentials: dict[str, Any], profile: str | None = None) ->
 
 
 def load_credentials() -> dict[str, Any] | None:
+    maybe_migrate()
     active = get_active_profile()
     profile_path = get_profile_credentials_path(active)
     if profile_path.exists():

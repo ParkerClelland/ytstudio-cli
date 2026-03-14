@@ -124,3 +124,47 @@ class TestProfileCredentials:
         config.save_credentials(profile_creds, profile="default")
         (temp_config / "credentials.json").write_text(json.dumps(legacy_creds))
         assert config.load_credentials() == profile_creds
+
+
+class TestMigration:
+    def test_existing_user_migrated_to_default(self, temp_config):
+        """Existing credentials.json gets migrated to profiles/default/."""
+        creds = {"token": "old_token"}
+        (temp_config / "credentials.json").write_text(json.dumps(creds))
+
+        result = config.load_credentials()
+
+        assert result == creds
+        assert not (temp_config / "credentials.json").exists()
+        assert (temp_config / "profiles" / "default" / "credentials.json").exists()
+        config_data = json.loads((temp_config / "config.json").read_text())
+        assert config_data["active_profile"] == "default"
+
+    def test_already_migrated_is_noop(self, temp_config):
+        """If profiles/ exists, migration does not run."""
+        config.ensure_profile_dir("existing-profile")
+        creds = {"token": "new_token"}
+        config.save_credentials(creds, profile="existing-profile")
+        config.set_active_profile("existing-profile")
+
+        config.maybe_migrate()
+
+        assert (temp_config / "profiles" / "existing-profile" / "credentials.json").exists()
+
+    def test_brand_new_user_is_noop(self, temp_config):
+        """No credentials.json and no profiles/ means migration is a no-op."""
+        config.maybe_migrate()
+
+        assert not (temp_config / "profiles").exists()
+        assert not (temp_config / "config.json").exists()
+
+    def test_migration_idempotent_after_partial(self, temp_config):
+        """Existing profiles/ with legacy file keeps migration as no-op."""
+        creds = {"token": "partial_token"}
+        (temp_config / "credentials.json").write_text(json.dumps(creds))
+
+        (temp_config / "profiles").mkdir(parents=True, exist_ok=True)
+
+        config.maybe_migrate()
+
+        assert (temp_config / "credentials.json").exists()
